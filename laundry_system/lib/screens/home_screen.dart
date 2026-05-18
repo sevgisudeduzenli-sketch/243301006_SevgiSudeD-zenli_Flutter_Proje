@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'add_order_screen.dart';
+import 'order_detail_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   @override
@@ -9,11 +10,18 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         children: [
           ListTile(
-            leading: Icon(Icons.local_laundry_service),
-            title: Text("Sipariş #1024"),
-            subtitle: Text("Durum: Yıkanıyor"),
-            trailing: Icon(Icons.arrow_forward_ios),
-          ),
+  leading: Icon(Icons.local_laundry_service),
+  title: Text("Sipariş #1024"),
+  subtitle: Text("Durum: Yıkanıyor"),
+  trailing: Icon(Icons.arrow_forward_ios),
+  onTap: () {
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => OrderDetailScreen()),
+    );
+  },
+),
           ListTile(
             leading: Icon(Icons.local_laundry_service),
             title: Text("Sipariş #1025"),

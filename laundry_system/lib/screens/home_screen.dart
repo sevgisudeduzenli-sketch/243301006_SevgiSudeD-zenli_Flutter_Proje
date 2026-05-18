@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'add_order_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   @override
@@ -22,7 +23,13 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {}, 
+        onPressed: () {
+  // Artı butonuna basınca Sipariş Ekleme Sayfasına git
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (context) => AddOrderScreen()),
+  );
+},
         child: Icon(Icons.add),
       ),
     );

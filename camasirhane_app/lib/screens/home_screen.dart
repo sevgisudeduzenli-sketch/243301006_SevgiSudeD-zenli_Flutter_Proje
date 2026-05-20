@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import "package:firebase_core/firebase_core.dart";
-import "add_order_screen.dart";
+import 'package:firebase_core/firebase_core.dart';
+import 'add_order_screen.dart';
+import 'order_detail_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -42,6 +43,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final DatabaseReference siparislerRef = FirebaseDatabase.instanceFor(
+      app: Firebase.app(),
+      databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
+    ).ref("siparisler");
+
     return Scaffold(
       appBar: AppBar(
         title: Text("Siparişlerim ($kullaniciRolu Sürümü)"),
@@ -57,35 +63,58 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: ListView(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.local_laundry_service),
-            title: const Text("Sipariş #1024"),
-            subtitle: const Text("Durum: Yıkanıyor"),
-            trailing: const Icon(Icons.arrow_forward_ios),
-            onTap: () {
-              Navigator.push(
-                context,
-                // BURADAKİ CONST KALDIRILDI!
-                MaterialPageRoute(builder: (context) => AddOrderScreen()), 
+      body: StreamBuilder(
+        stream: siparislerRef.onValue,
+        builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+            return const Center(child: Text("Henüz hiç sipariş bulunmuyor."));
+          }
+
+          Map<dynamic, dynamic> hamVeri = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+          List<Map<dynamic, dynamic>> siparisListesi = [];
+
+          hamVeri.forEach((key, value) {
+            siparisListesi.add({
+              'id': key,
+              'camasirTuru': value['camasirTuru'] ?? 'Bilinmiyor',
+              'makineNo': value['makineNo'] ?? '-',
+              'durum': value['durum'] ?? 'Bekliyor',
+              'kullanici': value['kullanici'] ?? '',
+            });
+          });
+
+          return ListView.builder(
+            itemCount: siparisListesi.length,
+            itemBuilder: (context, index) {
+              final siparis = siparisListesi[index];
+              
+              return ListTile(
+                leading: const Icon(Icons.local_laundry_service, color: Colors.blue),
+                title: Text("${siparis['camasirTuru']} (Makine: ${siparis['makineNo']})"),
+                subtitle: Text("Durum: ${siparis['durum']}"),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    // BURADAKİ HATALI CONST TAMAMEN KALDIRILDI!
+                    MaterialPageRoute(builder: (context) => OrderDetailScreen()),
+                  );
+                },
               );
             },
-          ),
-          ListTile(
-            leading: const Icon(Icons.local_laundry_service),
-            title: const Text("Sipariş #1025"),
-            subtitle: const Text("Durum: Teslim Edildi"),
-            trailing: const Icon(Icons.check_circle, color: Colors.green),
-          ),
-        ],
+          );
+        },
       ),
       floatingActionButton: kullaniciRolu == "Öğrenci"
           ? FloatingActionButton(
               onPressed: () {
                 Navigator.push(
                   context,
-                  // BURADAKİ CONST KALDIRILDI!
+                  // BURADAKİ HATALI CONST TAMAMEN KALDIRILDI!
                   MaterialPageRoute(builder: (context) => AddOrderScreen()),
                 );
               },

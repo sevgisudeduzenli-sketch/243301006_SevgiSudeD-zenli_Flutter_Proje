@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'home_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -52,8 +53,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     'kullanici': emailController.text.trim(),
                     'islem': 'Sisteme giriş yaptı',
                     'tarih': ServerValue.timestamp,
-                    }).then((_) {
-                    print("BINGO! VERI FIREBASE'E GITTI!");
+                  }).then((_) {
+                    print("VERI FIREBASE'E GITTI!");
                   });
 
                 } catch (e) {
@@ -72,6 +73,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 );
               },
               child: const Text("Giriş Yap"),
+            ),
+            const SizedBox(height: 10),
+            // Kayıt ol butonu senin istediğin gibi tam buraya eklendi
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                );
+              },
+              child: const Text("Hesabın yok mu? Kayıt Ol"),
             ),
           ],
         ),

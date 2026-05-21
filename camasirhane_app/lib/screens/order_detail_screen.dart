@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -13,168 +13,225 @@ class OrderDetailScreen extends StatefulWidget {
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
-  Timer? _sayacTimer;
-  int _kalanSaniye = 30; // Jüri testi için tam ideal süre
-  bool _sureBittiMi = false;
+  String kullaniciRolu = "Öğrenci";
+  late DatabaseReference _siparisRef;
 
   @override
   void initState() {
     super.initState();
-    _sayaciBaslat();
+    roluVeritabanindanCek();
+    
+    // Detayına girdiğimiz siparişin Firebase referansı
+    _siparisRef = FirebaseDatabase.instanceFor(
+      app: Firebase.app(),
+      databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
+    ).ref("siparisler/${widget.siparisVerisi['id']}");
   }
 
-  void _sayaciBaslat() {
-    _sayacTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_kalanSaniye > 0) {
+  void roluVeritabanindanCek() async {
+    final User? gecerliKullanici = FirebaseAuth.instance.currentUser;
+    if (gecerliKullanici != null) {
+      final String uid = gecerliKullanici.uid;
+      final DatabaseReference userRef = FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
+      ).ref("kullanicilar/$uid/rol");
+
+      final DataSnapshot snapshot = await userRef.get();
+      if (snapshot.exists) {
         setState(() {
-          _kalanSaniye--;
-        });
-      } else {
-        _sayacTimer?.cancel();
-        if (!_sureBittiMi) {
-          setState(() {
-            _sureBittiMi = true;
-          });
-          _durumuGuncelleVeBildirimVer();
-        }
-      }
-    });
-  }
-
-  void _durumuGuncelleVeBildirimVer() async {
-    try {
-      String siparisId = widget.siparisVerisi['id'] ?? '';
-      
-      if (siparisId.isNotEmpty) {
-        // 1. Firebase Realtime Database'deki durum bilgisini güncelliyoruz
-        final DatabaseReference guncelleRef = FirebaseDatabase.instanceFor(
-          app: Firebase.app(),
-          databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
-        ).ref("siparisler/$siparisId");
-
-        await guncelleRef.update({
-          'durum': 'Yıkandı (Teslim Alınabilir)',
-        });
-
-        // 2. İşlem logunu veritabanına fırlatıyoruz
-        final DatabaseReference logRef = FirebaseDatabase.instanceFor(
-          app: Firebase.app(),
-          databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
-        ).ref("logs");
-
-        await logRef.push().set({
-          'kullanici': widget.siparisVerisi['kullanici'] ?? 'Bilinmeyen',
-          'islem': 'Çamaşır yıkama süresi doldu, sistem siparişi otomatik güncelledi.',
-          'tarih': ServerValue.timestamp,
+          kullaniciRolu = snapshot.value.toString();
         });
       }
-
-      // 3. Ekranda şık bir bildirim kutusu açıyoruz
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.green),
-                SizedBox(width: 10),
-                Text("İşlem Tamamlandı!"),
-              ],
-            ),
-            content: const Text("Çamaşırınızın yıkanma işlemi başarıyla bitti. Makineden teslim alabilirsiniz!"),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop(); // Bildirimi kapat
-                  Navigator.of(context).pop(); // Ana sayfaya geri dön
-                },
-                child: const Text("Tamam", style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          );
-        },
-      );
-
-    } catch (e) {
-      debugPrint("Firebase Güncelleme Hatası: $e");
     }
   }
 
-  @override
-  void dispose() {
-    _sayacTimer?.cancel();
-    super.dispose();
-  }
-
-  String _sureFormatiniAl() {
-    int dakika = _kalanSaniye ~/ 60;
-    int saniye = _kalanSaniye % 60;
-    String dakikaStr = dakika.toString().padLeft(2, '0');
-    String saniyeStr = saniye.toString().padLeft(2, '0');
-    return "$dakikaStr:$saniyeStr";
+  // PERSONELİN SİPARİŞİ TAMAMEN SİLME/İPTAL ETME FONKSİYONU
+  void _siparisiIptalEt() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey.shade900,
+        title: const Text("Siparişi İptal Et", style: TextStyle(color: Colors.white)),
+        content: const Text("Bu aktif siparişi iptal etmek ve veritabanından tamamen silmek istediğinize emin misiniz?", style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Vazgeç", style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              await _siparisRef.remove(); // Firebase'den uçuruyoruz
+              if (!mounted) return;
+              Navigator.pop(context); // Diyaloğu kapat
+              Navigator.pop(context); // Detay ekranından ana sayfaya dön
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Sipariş başarıyla iptal edildi ve makine boşaltıldı.")),
+              );
+            },
+            child: const Text("Evet, İptal Et"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Sipariş Durumu Detayı"),
-        backgroundColor: Colors.blue,
+        title: Text(kullaniciRolu == "Öğrenci" ? "Sipariş Takibi" : "Yönetim Paneli Detay"),
+        backgroundColor: Colors.blue.shade900,
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.local_laundry_service, color: Colors.blue, size: 60),
-                  const SizedBox(height: 15),
-                  Text(
-                    widget.siparisVerisi['camasirTuru'] ?? 'Çamaşır Siparişi',
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    "Makine Numarası: ${widget.siparisVerisi['makineNo']}",
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  const Divider(height: 30, thickness: 1),
-                  
-                  // Canlı Dijital Sayaç Görünümü
-                  Text(
-                    _sureBittiMi ? "SÜRE DOLDU" : "Yıkama İşleminin Bitmesine Kalan Süre",
-                    style: TextStyle(fontSize: 14, color: _sureBittiMi ? Colors.green : Colors.blueGrey),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    _sureFormatiniAl(),
-                    style: TextStyle(
-                      fontSize: 48, 
-                      fontWeight: FontWeight.bold, 
-                      color: _sureBittiMi ? Colors.green : Colors.blue,
-                      fontFamily: 'Courier', // Dijital saat havası versin diye
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  Text(
-                    "Durum: ${_sureBittiMi ? 'Yıkandı' : widget.siparisVerisi['durum']}",
-                    style: TextStyle(
-                      fontSize: 16, 
-                      color: _sureBittiMi ? Colors.green : Colors.orange, 
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.blue.shade900, Colors.grey.shade900],
           ),
+        ),
+        child: StreamBuilder(
+          stream: _siparisRef.onValue,
+          builder: (context, AsyncSnapshot<DatabaseEvent> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: Colors.white));
+            }
+
+            // Eğer sipariş personel tarafından silindiyse veya yoksa ekranda hata vermemesi için koruma
+            if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+              return const Center(
+                child: Text(
+                  "Bu işlem havuzdan kaldırılmış veya tamamlanmış.",
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+              );
+            }
+
+            final Map<dynamic, dynamic> guncelSiparis = snapshot.data!.snapshot.value as Map<dynamic, dynamic>;
+            final String guncelDurum = (guncelSiparis['durum'] ?? '').toString();
+            
+            String gosterilecekDurumText = guncelDurum;
+            if (guncelDurum == 'Yıkandı (Teslim Alınabilir)' || guncelDurum == 'Kurutma Bitti (Teslim Alınabilir)') {
+              gosterilecekDurumText = 'Çamaşır Alınmaya Hazır';
+            }
+
+            final String kNo = guncelSiparis['kurutmaMakineNo'].toString();
+            final String makineIbaresi = kNo.isNotEmpty && kNo != 'null' 
+                ? "M-${guncelSiparis['makineNo']} ➔ K-$kNo" 
+                : "M-${guncelSiparis['makineNo']}";
+
+            return SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    // Bilgi Kartı
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(25),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withAlpha(38)),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            guncelDurum.contains('Kurutuluyor') ? Icons.wind_power : Icons.local_laundry_service,
+                            size: 64,
+                            color: guncelDurum.contains('Kurutuluyor') ? Colors.orange : Colors.blue.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            "${guncelSiparis['camasirTuru']}",
+                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            "İstasyon Konumu: $makineIbaresi",
+                            style: const TextStyle(fontSize: 15, color: Colors.white70),
+                          ),
+                          const Divider(color: Colors.white24, height: 24),
+                          
+                          // Dinamik Durum Çubuğu Alanı
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text("Güncel Aşama:", style: TextStyle(color: Colors.white70, fontSize: 15)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: gosterilecekDurumText == "Çamaşır Alınmaya Hazır" ? Colors.green.withAlpha(51) : Colors.blue.withAlpha(51),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: gosterilecekDurumText == "Çamaşır Alınmaya Hazır" ? Colors.green : Colors.blue),
+                                ),
+                                child: Text(
+                                  gosterilecekDurumText,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: gosterilecekDurumText == "Çamaşır Alınmaya Hazır" ? Colors.green.shade300 : Colors.blue.shade300,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text("Hizmet Bedeli:", style: TextStyle(color: Colors.white70, fontSize: 15)),
+                              Text("${guncelSiparis['ucret']} TL", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber, fontSize: 16)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 30),
+
+                    // PERSONEL/YÖNETİCİ EKRANINA ÖZEL KIRMIZI İPTAL ETME BUTONU
+                    if (kullaniciRolu != "Öğrenci") ...[
+                      const Text(
+                        "Yönetici İşlemleri",
+                        style: TextStyle(color: Colors.white60, fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 55,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade800,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 4,
+                          ),
+                          icon: const Icon(Icons.delete_forever, size: 24),
+                          label: const Text(
+                            "Siparişi İptal Et ve Sil",
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: _siparisiIptalEt, // İptal tetikleyicisi
+                        ),
+                      ),
+                    ] else ...[
+                      // Eğer giriş yapan öğrenciyse bilgilendirme notu görebilir
+                      const Text(
+                        "🔒 Sistem akıllı sensörlerle otomatik olarak yönetilmektedir. Süre bittiğinde istasyon durumu güncellenecektir.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white38, fontSize: 12),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

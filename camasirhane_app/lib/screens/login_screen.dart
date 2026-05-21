@@ -1,8 +1,9 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'register_screen.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'home_screen.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,26 +12,72 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  
-  // HATA ÇÖZÜLDÜ: Değişkeni late yapıp riske girmek yerine burada doğrudan tanımlıyoruz
-  AnimationController? _animationController;
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _sifreController = TextEditingController();
+  bool _loading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // Animasyonu burada güvenli bir şekilde başlatıp döngüye alıyoruz
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 10),
-    )..repeat();
+  final List<String> _yetkiliYneticiler = [
+    "sevgisude@email.com", 
+    "aysenur@email.com"    
+  ];
+
+  void _girisYap() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _loading = true);
+    try {
+      UserCredential userCredential = await FirebaseAuth.instance
+          .signInWithEmailAndPassword(
+              email: _emailController.text.trim(), 
+              password: _sifreController.text.trim()
+          );
+
+      User? user = userCredential.user;
+      if (user != null) {
+        String girisYapanEmail = user.email?.toLowerCase().trim() ?? "";
+
+        final ref = FirebaseDatabase.instanceFor(
+          app: Firebase.app(),
+          databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com'
+        ).ref();
+
+        if (_yetkiliYneticiler.contains(girisYapanEmail)) {
+          await ref.child("kullanicilar/${user.uid}").update({'rol': 'Personel'});
+        } else {
+          final snapshot = await ref.child("kullanicilar/${user.uid}/rol").get();
+          if (!snapshot.exists) {
+            await ref.child("kullanicilar/${user.uid}").update({'rol': 'Öğrenci'});
+          }
+        }
+
+        await ref.child("log_kayitlari").push().set({
+          'kullaniciId': user.uid,
+          'email': girisYapanEmail,
+          'islem': 'Sisteme Başarılı Giriş Yapıldı',
+          'zaman': ServerValue.timestamp
+        });
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Giriş Başarısız: $e"), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   void dispose() {
-    _animationController?.dispose();
+    _emailController.dispose();
+    _sifreController.dispose();
     super.dispose();
   }
 
@@ -39,122 +86,86 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     return Scaffold(
       body: Stack(
         children: [
-          // 1. KATMAN: Animasyonlu Baloncuk Arka Planı
-          if (_animationController != null)
-            AnimatedBuilder(
-              animation: _animationController!,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: BubblePainter(_animationController!.value),
-                  child: Container(),
-                );
-              },
+          // Sadece şık ve statik gradyan arka plan (Sıfır işlemci yükü, sıfır donma!)
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue.shade900, Colors.grey.shade900], 
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
             ),
-          
-          // 2. KATMAN: Giriş Formu
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.waves, size: 80, color: Colors.blue),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "Akıllı Çamaşırhane",
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue),
-                  ),
-                  const Text("Kampüs Sipariş & Takip Sistemi", style: TextStyle(color: Colors.blueGrey)),
-                  const SizedBox(height: 30),
-                  Card(
-                    elevation: 8,
-                    shadowColor: Colors.blue.withOpacity(0.2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
+
+          _loading
+            ? const Center(child: CircularProgressIndicator(color: Colors.white))
+            : Center(
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
                     child: Padding(
-                      padding: const EdgeInsets.all(24.0),
+                      padding: const EdgeInsets.all(25.0),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text("Oturum Aç", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 20),
-                          TextField(
-                            controller: emailController,
-                            decoration: InputDecoration(
-                              labelText: "E-posta",
-                              prefixIcon: const Icon(Icons.email, color: Colors.blue),
-                              filled: true,
-                              fillColor: Colors.blue.shade50.withOpacity(0.5),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                            ),
+                          Icon(Icons.local_laundry_service, size: 80, color: Colors.blue.shade300),
+                          const SizedBox(height: 10),
+                          const Text("Çamaşırhane", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                          const Text("Akıllı Yönetim Sistemi", style: TextStyle(color: Colors.white60, fontSize: 14)),
+                          const SizedBox(height: 50),
+                          
+                          TextFormField(
+                            controller: _emailController,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: _inputDekorasyonu("E-posta Adresi", Icons.email),
+                            validator: (v) => v!.isEmpty ? "E-posta gerekli" : null,
                           ),
                           const SizedBox(height: 15),
-                          TextField(
-                            controller: passwordController,
+                          TextFormField(
+                            controller: _sifreController,
                             obscureText: true,
-                            decoration: InputDecoration(
-                              labelText: "Şifre",
-                              prefixIcon: const Icon(Icons.lock, color: Colors.blue),
-                              filled: true,
-                              fillColor: Colors.blue.shade50.withOpacity(0.5),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                            ),
+                            style: const TextStyle(color: Colors.white),
+                            decoration: _inputDekorasyonu("Şifre", Icons.lock),
+                            validator: (v) => v!.isEmpty ? "Şifre gerekli" : null,
                           ),
-                          const SizedBox(height: 25),
+                          const SizedBox(height: 30),
+                          
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(55),
-                              backgroundColor: Colors.blue,
+                              minimumSize: const Size.fromHeight(55), 
+                              backgroundColor: Colors.blue.shade700, 
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                              elevation: 5,
                             ),
-                            onPressed: () async {
-                              try {
-                                await FirebaseAuth.instance.signInWithEmailAndPassword(
-                                  email: emailController.text.trim(),
-                                  password: passwordController.text.trim(),
-                                );
-                                if (!mounted) return;
-                                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const HomeScreen()));
-                              } catch (e) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Giriş Hatalı!')));
-                              }
-                            },
-                            child: const Text("Giriş Yap", style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                            onPressed: _girisYap,
+                            child: const Text("Giriş Yap", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
+                          const SizedBox(height: 20),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterScreen()));
+                            },
+                            child: const Text("Henüz hesabın yok mu? Kayıt Ol", style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+                          )
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  TextButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterScreen())),
-                    child: const Text("Hesabın yok mu? Kayıt Ol", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
         ],
       ),
     );
   }
-}
 
-class BubblePainter extends CustomPainter {
-  final double animationValue;
-  BubblePainter(this.animationValue);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.blue.withOpacity(0.1);
-    final random = Random(42); 
-
-    for (int i = 0; i < 15; i++) {
-      double x = random.nextDouble() * size.width;
-      double y = ((random.nextDouble() * size.height) - (animationValue * size.height)) % size.height;
-      double radius = random.nextDouble() * 40 + 10;
-      canvas.drawCircle(Offset(x, y), radius, paint);
-    }
+  InputDecoration _inputDekorasyonu(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Colors.white70),
+      prefixIcon: Icon(icon, color: Colors.blue.shade400),
+      filled: true,
+      fillColor: Colors.white.withAlpha(20),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+    );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

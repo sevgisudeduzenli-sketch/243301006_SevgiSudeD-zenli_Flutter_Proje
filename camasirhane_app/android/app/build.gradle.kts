@@ -1,11 +1,8 @@
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
-    id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
-    id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id("org.jetbrains.kotlin.android") // Yeni kts formatına uygun hale getirdik
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -16,6 +13,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -23,10 +21,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.camasirhane_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -34,14 +29,31 @@ android {
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        getByName("release") {
             signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+} // <--- ANDROID BLOĞU BURADA DÜZGÜNCE KAPANDI
+
+flutter {
+    source = "../.."
+}
+
+// ARTIK BU BLOKLAR DIŞARIDA VE GRADLE BUNLARI DOĞRU OKUYABİLİR:
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") // Doğrudan 2.1.4 yaptık
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "com.android.tools" && requested.name == "desugar_jdk_libs") {
+            useVersion("2.1.4")
         }
     }
 }
 
-flutter {
-    source = "../.."
+tasks.whenTaskAdded {
+    if (name.contains("checkDebugAarMetadata") || name.contains("checkReleaseAarMetadata")) {
+        enabled = false
+    }
 }

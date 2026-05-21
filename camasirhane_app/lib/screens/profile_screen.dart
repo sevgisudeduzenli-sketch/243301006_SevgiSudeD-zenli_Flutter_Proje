@@ -12,147 +12,234 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String ad = "Yükleniyor...";
-  String soyad = "";
-  String telefon = "Yükleniyor...";
-  String rol = "Yükleniyor...";
-  String eposta = "";
+  final User? user = FirebaseAuth.instance.currentUser;
+  
+  final TextEditingController _adController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _telController = TextEditingController();
+  final TextEditingController _rolController = TextEditingController(); 
+  
+  String _sistemRolu = "Öğrenci"; 
+  bool _loading = true;
+
+  final List<String> _yetkiliYneticiler = [
+    "sevgisude@email.com",
+    "aysenur@email.com"
+  ];
 
   @override
   void initState() {
     super.initState();
-    kullaniciDetaylariniCek();
+    _bilgileriGetir();
   }
 
-  void kullaniciDetaylariniCek() async {
-    final User? gecerliKullanici = FirebaseAuth.instance.currentUser;
-    if (gecerliKullanici != null) {
-      String uid = gecerliKullanici.uid;
-      setState(() {
-        eposta = gecerliKullanici.email ?? "";
-      });
+  void _bilgileriGetir() async {
+    if (user != null) {
+      String anlikEmail = user!.email?.toLowerCase().trim() ?? "";
+      if (_yetkiliYneticiler.contains(anlikEmail)) {
+        _sistemRolu = "Personel";
+      }
 
-      final DatabaseReference userRef = FirebaseDatabase.instanceFor(
-        app: Firebase.app(),
-        databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
-      ).ref("kullanicilar/$uid");
+      try {
+        final ref = FirebaseDatabase.instanceFor(
+          app: Firebase.app(),
+          databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
+        ).ref("kullanicilar/${user!.uid}");
 
-      final DataSnapshot snapshot = await userRef.get();
-      if (snapshot.exists) {
-        Map<dynamic, dynamic> veri = snapshot.value as Map<dynamic, dynamic>;
+        final snapshot = await ref.get();
+        if (snapshot.exists && snapshot.value != null) {
+          Map data = snapshot.value as Map;
+          setState(() {
+            _adController.text = (data['adSoyad'] ?? "").toString();
+            _emailController.text = (data['email'] ?? user!.email ?? "").toString();
+            _telController.text = (data['telefon'] ?? "").toString();
+            _sistemRolu = (data['rol'] ?? _sistemRolu).toString();
+            _rolController.text = _sistemRolu;
+            _loading = false;
+          });
+        } else {
+          setState(() {
+            _emailController.text = user!.email ?? "";
+            _rolController.text = _sistemRolu;
+            _loading = false;
+          });
+        }
+      } catch (e) {
         setState(() {
-          ad = veri['ad'] ?? "Bilinmiyor";
-          soyad = veri['soyad'] ?? "";
-          telefon = veri['telefon'] ?? "Bilinmiyor";
-          rol = veri['rol'] ?? "Öğrenci";
+          _emailController.text = user!.email ?? "";
+          _rolController.text = _sistemRolu;
+          _loading = false;
         });
       }
+    } else {
+      setState(() => _loading = false);
     }
+  }
+
+  void _bilgileriGuncelle() async {
+    if (user == null) return;
+    setState(() => _loading = true);
+    try {
+      final ref = FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
+      ).ref("kullanicilar/${user!.uid}");
+
+      await ref.update({
+        'adSoyad': _adController.text.trim(),
+        'email': _emailController.text.trim().toLowerCase(),
+        'telefon': _telController.text.trim(),
+        'rol': _sistemRolu, 
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Profil başarıyla güncellendi!"), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Hata oluştu: $e"), backgroundColor: Colors.red),
+      );
+    }
+    setState(() => _loading = false);
+  }
+
+  @override
+  void dispose() {
+    _adController.dispose();
+    _emailController.dispose();
+    _telController.dispose();
+    _rolController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Profil Bilgileri"),
-        backgroundColor: Colors.blue,
+        title: const Text("Profil Ayarları", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.blue.shade900,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.account_circle,
-                  size: 100,
-                  color: Colors.blue,
-                ),
-                const SizedBox(height: 20),
-                
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.person, color: Colors.blue),
-                          title: const Text("Ad Soyad"),
-                          // HATA DÜZELTİLDİ: Colors.black87 yapıldı
-                          subtitle: Text("$ad $soyad", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.email, color: Colors.blue),
-                          title: const Text("E-posta Adresi"),
-                          // HATA DÜZELTİLDİ: Colors.black87 yapıldı
-                          subtitle: Text(eposta, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.phone, color: Colors.blue),
-                          title: const Text("Telefon Numarası"),
-                          // HATA DÜZELTİLDİ: Colors.black87 yapıldı
-                          subtitle: Text(telefon, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
-                        ),
-                        const Divider(),
-                        ListTile(
-                          leading: const Icon(Icons.badge, color: Colors.blue),
-                          title: const Text("Sistem Rolü"),
-                          subtitle: Text(rol, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue)),
-                        ),
-                      ],
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.blue.shade900, Colors.grey.shade900],
+          ),
+        ),
+        child: _loading 
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(25.0),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.blue.shade400, width: 3)),
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundColor: Colors.white12,
+                      child: Icon(Icons.person, size: 80, color: Colors.blue.shade300),
                     ),
                   ),
-                ),
-                const SizedBox(height: 30),
-                
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                    minimumSize: const Size.fromHeight(50),
+                  const SizedBox(height: 15),
+                  Text(
+                    _adController.text.isEmpty ? "Kullanıcı Profili" : _adController.text,
+                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  label: const Text(
-                    "Oturumu Kapat / Çıkış Yap",
-                    style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
+                  Text(_sistemRolu, style: TextStyle(color: Colors.blue.shade300, fontSize: 14, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 40),
+
+                  _profilInput("Ad Soyad", _adController, Icons.person_outline, true),
+                  const SizedBox(height: 15),
+                  _profilInput("E-posta Adresi", _emailController, Icons.email_outlined, true),
+                  const SizedBox(height: 15),
+                  _profilInput("Telefon Numarası", _telController, Icons.phone_android_outlined, true),
+                  const SizedBox(height: 15),
+                  _profilInput("Sistem Rolü (Değiştirilemez)", _rolController, Icons.admin_panel_settings_outlined, false),
+                  
+                  const SizedBox(height: 40),
+
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade700,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(60),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      elevation: 5,
+                    ),
+                    icon: const Icon(Icons.save_as_rounded),
+                    label: const Text("Bilgileri Güncelle", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    onPressed: _bilgileriGuncelle,
                   ),
-                  onPressed: () async {
-                    try {
-                      final DatabaseReference logRef = FirebaseDatabase.instanceFor(
-                        app: Firebase.app(),
-                        databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
-                      ).ref("logs");
+                  
+                  const SizedBox(height: 20),
+                  
+                  TextButton(
+                    onPressed: () async {
+                      User? user = FirebaseAuth.instance.currentUser;
+                      if (user != null) {
+                        try {
+                          await FirebaseDatabase.instanceFor(
+                            app: Firebase.app(),
+                            databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
+                          ).ref("log_kayitlari").push().set({
+                            'kullaniciId': user.uid,
+                            'email': user.email,
+                            'islem': 'Sistemden Güvenli Çıkış Yapıldı',
+                            'zaman': ServerValue.timestamp,
+                          });
+                        } catch (_) {}
+                      }
 
-                      await logRef.push().set({
-                        'kullanici': eposta,
-                        'islem': 'Sistemden çıkış yaptı (Kullanıcı: $ad)',
-                        'tarih': ServerValue.timestamp,
-                      });
+                      if (!mounted) return;
 
+                      // 🚨 KESİN ÇÖZÜM: Önce Profil sayfasını yok et ki alt katman donmasın!
+                      Navigator.pop(context);
+
+                      // Oturumu kapatıyoruz, main.dart anında algılayıp donmasız LoginScreen'e atacak
                       await FirebaseAuth.instance.signOut();
+                    },
+                    child: const Text("Güvenli Çıkış Yap", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+      ),
+    );
+  }
 
-                      if (!context.mounted) return;
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
-                        (route) => false,
-                      );
-
-                    } catch (e) {
-                      debugPrint("Çıkış Log Hatası: $e");
-                    }
-                  },
-                ),
-              ],
+  Widget _profilInput(String label, TextEditingController controller, IconData icon, bool enabled) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 8, bottom: 8),
+          child: Text(label, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: enabled ? Colors.white.withAlpha(15) : Colors.black.withAlpha(50),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: enabled ? Colors.white.withAlpha(30) : Colors.transparent),
+          ),
+          child: TextFormField(
+            controller: controller,
+            enabled: enabled, 
+            style: TextStyle(color: enabled ? Colors.white : Colors.white38, fontSize: 16),
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, color: enabled ? Colors.blue.shade400 : Colors.white24),
+              border: InputBorder.none, 
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

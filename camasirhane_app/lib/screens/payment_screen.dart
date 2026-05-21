@@ -42,7 +42,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Şık Ödeme Özeti Kartı
+              // Ödeme Özeti Kartı
               Card(
                 color: Colors.blue.shade50,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -87,7 +87,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     child: TextField(
                       controller: sktController,
                       decoration: const InputDecoration(labelText: "AA/YY", border: OutlineInputBorder()),
-                      keyboardType: TextInputType.datetime,
+                      keyboardType: TextInputType.number,
                     ),
                   ),
                   const SizedBox(width: 15),
@@ -105,7 +105,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(50),
-                  backgroundColor: Colors.green, // Ödeme butonu güven versin diye yeşil
+                  backgroundColor: Colors.green,
                 ),
                 onPressed: () async {
                   if (isimController.text.isEmpty || kartNoController.text.isEmpty || sktController.text.isEmpty || cvvController.text.isEmpty) {
@@ -119,12 +119,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     final User? gecerliKullanici = FirebaseAuth.instance.currentUser;
                     String eposta = gecerliKullanici?.email ?? "Bilinmeyen";
 
-                    // 1. Siparişi ve Ödeme Durumunu Firebase Realtime Database'e çakıyoruz
                     final DatabaseReference siparisRef = FirebaseDatabase.instanceFor(
                       app: Firebase.app(),
                       databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
                     ).ref("siparisler");
 
+                    // Sipariş eklenirken zaman damgasını milisaniye olarak ekliyoruz
                     await siparisRef.push().set({
                       'kullanici': eposta,
                       'camasirTuru': widget.camasirTur,
@@ -132,12 +132,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       'kurutma': widget.kurutma,
                       'makineNo': widget.makineNo,
                       'ucret': widget.ucret,
-                      'durum': 'Sipariş Alındı (Ödendi)',
+                      'durum': 'Sipariş Alındı (Yıkanıyor)',
                       'odendi': true,
+                      'siparisZamani': DateTime.now().millisecondsSinceEpoch, // ZAMAN AKIŞI İÇİN BURASI ŞART
                       'tarih': ServerValue.timestamp,
                     });
 
-                    // 2. İŞLEM LOGU: Ödeme yapıldı logunu fırlatıyoruz
                     final DatabaseReference logRef = FirebaseDatabase.instanceFor(
                       app: Firebase.app(),
                       databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
@@ -154,7 +154,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       const SnackBar(content: Text('Ödeme Başarılı! Siparişiniz Hazırlanıyor.')),
                     );
 
-                    // Ödeme bitince sipariş ekleme ekranını da geçerek direkt ana sayfaya dönüyoruz
                     Navigator.of(context).popUntil((route) => route.isFirst);
 
                   } catch (e) {

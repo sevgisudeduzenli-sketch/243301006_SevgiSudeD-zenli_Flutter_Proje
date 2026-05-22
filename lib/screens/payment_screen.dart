@@ -124,7 +124,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com',
                     ).ref("siparisler");
 
-                    // Sipariş eklenirken zaman damgasını milisaniye olarak ekliyoruz
                     await siparisRef.push().set({
                       'kullanici': eposta,
                       'camasirTuru': widget.camasirTur,
@@ -134,7 +133,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       'ucret': widget.ucret,
                       'durum': 'Sipariş Alındı (Yıkanıyor)',
                       'odendi': true,
-                      'siparisZamani': DateTime.now().millisecondsSinceEpoch, // ZAMAN AKIŞI İÇİN BURASI ŞART
+                      'siparisZamani': DateTime.now().millisecondsSinceEpoch, 
                       'tarih': ServerValue.timestamp,
                     });
 

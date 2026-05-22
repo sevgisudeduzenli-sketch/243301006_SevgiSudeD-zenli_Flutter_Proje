@@ -18,7 +18,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _bgGlobalTimer;
   Map<String, bool> arizaliMakineler = {}; 
 
-  // Firebase stream abonelikleri saklama alanı
   StreamSubscription<DatabaseEvent>? _arizaAboneligi;
   StreamSubscription<DatabaseEvent>? _siparisAboneligi;
 
@@ -44,7 +43,6 @@ class _HomeScreenState extends State<HomeScreen> {
     arizalariDinle();
     siparisleriDinle();
 
-    // Zamanlayıcı mekanizması
     _bgGlobalTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (FirebaseAuth.instance.currentUser == null) {
         timer.cancel();
@@ -151,7 +149,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // İşlemciyi kilitlemeyen imha metodu profil tetiklemesi için de hazır
   void tumAbonelikleriKapat() async {
     _bgGlobalTimer?.cancel();
     await _arizaAboneligi?.cancel();
@@ -310,7 +307,6 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.blue.shade900,
         foregroundColor: Colors.white,
         elevation: 0,
-        // 🚨 DÜZELTİLDİ: AppBar içindeki o fazlalık çıkış iconu tamamen uçuruldu! ✅
       ),
       body: Container(
         decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.blue.shade900, Colors.grey.shade900])),

@@ -199,10 +199,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       if (!mounted) return;
 
-                      // 🚨 KESİN ÇÖZÜM: Önce Profil sayfasını yok et ki alt katman donmasın!
                       Navigator.pop(context);
 
-                      // Oturumu kapatıyoruz, main.dart anında algılayıp donmasız LoginScreen'e atacak
                       await FirebaseAuth.instance.signOut();
                     },
                     child: const Text("Güvenli Çıkış Yap", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),

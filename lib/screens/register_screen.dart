@@ -12,8 +12,6 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  
-  // Senin orijinal controller isimlerin harfi harfine korundu ✅
   final _adController = TextEditingController();
   final _emailController = TextEditingController();
   final _telController = TextEditingController();
@@ -25,7 +23,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _loading = true);
     try {
-      // 1. Firebase Auth kaydı
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
               email: _emailController.text.trim(), 
@@ -40,7 +37,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           databaseURL: 'https://camasirhane-fcde0-default-rtdb.firebaseio.com'
         ).ref();
 
-        // 2. Kullanıcı tablosuna yazma emri (await garantili)
         await ref.child("kullanicilar").child(user.uid).set({
           'adSoyad': _adController.text.trim(), 
           'email': _emailController.text.trim().toLowerCase(),
@@ -48,7 +44,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'rol': 'Öğrenci', 
         });
 
-        // 3. Log kaydı fırlatılıyor
         await ref.child("log_kayitlari").push().set({
           'kullaniciId': user.uid,
           'email': _emailController.text.trim().toLowerCase(),
@@ -56,7 +51,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'zaman': ServerValue.timestamp
         });
 
-        // 4. Otomatik girişi iptal edip çakışmayı sıfırlayan joker hamle
         await FirebaseAuth.instance.signOut();
 
         if (!mounted) return;
@@ -72,7 +66,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(ctx); 
-                  Navigator.pop(context); // Giriş ekranına pürüzsüz geri fırlatır
+                  Navigator.pop(context); 
                 },
                 child: const Text("Tamam"),
               )
@@ -110,7 +104,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       body: Stack(
         children: [
-          // Sadece şık ve statik gradyan arka plan
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(

@@ -1,6 +1,6 @@
 # test hesabı bilgileri
 "yönetici(personel)" =  mail adresi:sevgisude@email.com şifre:ssd243301006
-"standart kullanıcı" = mail adresi:Fatma@email.com    şifre:fatma123
+"standart kullanıcı" = mail adresi:fatma@email.com    şifre:fatma123
 
 # uygulama adı
 camasirhane_app

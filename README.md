@@ -1,17 +1,28 @@
-# camasirhane_app
+# test hesabı bilgileri
+"yönetici(personel)" =  mail adresi:sevgisude@email.com şifre:ssd243301006
+"standart kullanıcı" = mail adresi:Fatma@email.com    şifre:fatma123
 
-A new Flutter project.
+# uygulama adı
+camasirhane_app
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
 
-A few resources to get you started if this is your first Flutter project:
+# Öğrenci Bilgileri
+Adı Soyadı: Sevgi Sude Düzenli  
+Öğrenci Numarası: 243301006
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+
+
+# ekran kaydı ve videolarının olduğu doyanın drive linki
+https://drive.google.com/file/d/1Vn48v2rRBlF7FLaM56v8morAwnu6vj_9/view?usp=sharing
+
+
+
+
+# Kullanılan Paketler ve Teknolojiler
+Bu proje geliştirilirken aşağıdaki Flutter paketlerinden ve bulut teknolojilerinden yararlanılmıştır:
+`firebase_core`: Firebase servislerinin proje ile senkronizasyonu.
+`firebase_auth`: E-posta ve şifre tabanlı güvenli kullanıcı doğrulama mekanizması.
+`firebase_database`: Canlı makine durumları, sipariş havuzu ve log kayıtlarının anlık (Realtime) tutulması.
+`async / Timer`: Makinelerin yıkama ve kurutma sürelerini arka planda işlemciyi kilitlemeden sayan asenkron motor yapısı.
